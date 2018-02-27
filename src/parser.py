@@ -58,7 +58,8 @@ class ParseOpenFace:
             sum_gaze = [(left.x+right.x), (left.y+right.y), (left.z+right.z)]
             norm_factor = math.sqrt(sum(map(lambda x:x*x,sum_gaze)))
             self.avg_gaze = map(lambda x: x/norm_factor, sum_gaze)
-            # print self.avg_gaze[0]
+            print self.avg_gaze
+
             if(self.avg_gaze[0]>0.065):
               self.mutual = True
             else:
@@ -68,7 +69,7 @@ class ParseOpenFace:
 
             head_msg = msg.faces[0].head_pose.position
             self.head_pose = [head_msg.x, head_msg.y, head_msg.z]
-
+            # print self.head_pose
             self.find_nearest_object()
             self.publish_nearest_obj()
 
@@ -85,7 +86,7 @@ class ParseOpenFace:
 
       x, y = self.image_geo.project3dToPixel(self.head_gaze_pose)
       # print "after project {0}".format(y)
-
+      # print x,y
       msg = Float32MultiArray(data=(x,y))
       self.pub.publish(msg)
 
@@ -93,6 +94,7 @@ class ParseOpenFace:
       if not (self.hlpr_objects or self.yolo_objects or len(self.hlpr_objects)>0):
         return
       min_center = self.find_closest_hlpr_cluster().bb_center
+      print min_center
       x, y = self.image_geo.project3dToPixel((min_center.x, min_center.y, min_center.z))
       yolo_object = self.find_closest_yolo_obj(x,y)
       self.publish_object_bridge(yolo_object)
@@ -102,7 +104,7 @@ class ParseOpenFace:
       nearest_object_msg = String(data=yolo_obj.label)
       msg_topic = GazeTopic(nearest_object = nearest_object_msg, mutual = mutual_bool)
       self.obj_bridge_pub.publish(msg_topic)
-      # print yolo_obj.label
+      print yolo_obj.label
 
     def find_closest_hlpr_cluster(self):
       min_diff = float('inf')
