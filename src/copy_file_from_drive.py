@@ -3,7 +3,8 @@
 from shutil import copytree
 
 users = ['elaine', 'taylor', 'adam', 'yuchen', 'mailee', 'srinjoy', 'alex', 'priyanka', 'caleb', 'ajinkya']
-exp = 'exp6'
+# users = ['caleb']
+exp = 'exp5'
 destination_path = "/media/psf/srinjoymajumdar/ROS_VM/data_for_{0}".format(exp)
 source_path = "/media/srinjoy/poli_ws/data_for_openface"
 

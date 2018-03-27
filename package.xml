@@ -2,7 +2,7 @@
 <package>
   <name>parse_openface_ros</name>
   <version>1.0.0</version>
-  <description>Bridge between YOLO and Gaze Predictor</description>
+  <description>OpenFace Wrapper</description>
 
   <author email="srinjoy.majumdar@utexas.edu">Srinjoy Majumdar</author>
   <maintainer email="srinjoy.majumdar@utexas.edu">Srinjoy Majumdar</maintainer>

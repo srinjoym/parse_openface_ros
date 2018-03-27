@@ -5,13 +5,11 @@ project(parse_openface_ros)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  cv_bridge
   geometry_msgs
   roscpp
   rospy
   std_msgs
   sensor_msgs
-  rail_object_detector
   message_generation
 )
 
@@ -49,7 +47,11 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
- 
+
+add_message_files(
+   FILES
+   Lines.msg
+ ) 
 
 ## Generate services in the 'srv' folder
 
@@ -63,6 +65,11 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## Generate added messages and services with any dependencies listed here
 
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -99,7 +106,6 @@ catkin_package(
 #  CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs
 #  DEPENDS system_lib
   CATKIN_DEPENDS
-  cv_bridge
   image_transport
   message_runtime
   sensor_msgs

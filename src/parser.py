@@ -21,6 +21,7 @@ from rail_object_detector.msg import Detections
 import tf
 import numpy as np
 from object_detector.msg import GazeTopic
+from parse_openface_ros.msg import Lines
 
 class ParseOpenFace:
     def __init__(self):
@@ -31,7 +32,7 @@ class ParseOpenFace:
         rospy.Subscriber("beliefs/features", PcFeatureArray, self.hlpr_callback)
         self.camera_info_sub = rospy.Subscriber("kinect/qhd/camera_info", CameraInfo, self.camera_info_callback)
         self.yolo_sub = rospy.Subscriber("detector_node/detections", Detections, self.yolo_callback)
-        self.pub = rospy.Publisher("openface_gaze", Float32MultiArray)
+        self.line_pub = rospy.Publisher("gaze_gui_line", Lines)
         self.obj_bridge_pub = rospy.Publisher("object_detector_bridge", GazeTopic)
         self.camera_init_done = False
         self.gaze_x, self.gaze_y, self.gaze_z = None, None, None
@@ -58,7 +59,7 @@ class ParseOpenFace:
             sum_gaze = [(left.x+right.x), (left.y+right.y), (left.z+right.z)]
             norm_factor = math.sqrt(sum(map(lambda x:x*x,sum_gaze)))
             self.avg_gaze = map(lambda x: x/norm_factor, sum_gaze)
-            print self.avg_gaze
+            # print self.avg_gaze
 
             if(self.avg_gaze[0]>0.065):
               self.mutual = True
@@ -77,34 +78,32 @@ class ParseOpenFace:
     def find_nearest_object(self):
       if not (self.camera_init_done or self.hlpr_objects or self.yolo_objects):
         return
-      # Y_TARGET = 400
-      # aiming for head_y + scaling_factor*gaze_y = Y_TARGET
-      # (Y_TARGET - head_y)/(gaze_y) = scaling factor
-      scaling_factor = 700
-      self.avg_gaze = map(lambda x: x*scaling_factor, self.avg_gaze)
+      # scaling_factor = 1500
+      # self.avg_gaze = map(lambda x: x*scaling_factor, self.avg_gaze)
       self.head_gaze_pose = np.add(self.head_pose,self.avg_gaze).tolist()
-
-      x, y = self.image_geo.project3dToPixel(self.head_gaze_pose)
-      # print "after project {0}".format(y)
-      # print x,y
-      msg = Float32MultiArray(data=(x,y))
-      self.pub.publish(msg)
 
     def publish_nearest_obj(self):
       if not (self.hlpr_objects or self.yolo_objects or len(self.hlpr_objects)>0):
         return
       min_center = self.find_closest_hlpr_cluster().bb_center
-      print min_center
-      x, y = self.image_geo.project3dToPixel((min_center.x, min_center.y, min_center.z))
-      yolo_object = self.find_closest_yolo_obj(x,y)
-      self.publish_object_bridge(yolo_object)
+      # print min_center  # DEBUG
+      obj_x, obj_y = self.image_geo.project3dToPixel((min_center.x, min_center.y, min_center.z))
+      yolo_object = self.find_closest_yolo_obj(obj_x,obj_y)
+
+      gaze_x, gaze_y = self.image_geo.project3dToPixel(self.head_gaze_pose)
+      head_x, head_y = self.image_geo.project3dToPixel(self.head_pose)
+      prediction = [gaze_x, gaze_y, head_x, head_y]
+
+      self.publish_object_bridge(yolo_object, prediction)
       
-    def publish_object_bridge(self, yolo_obj):
+    def publish_object_bridge(self, yolo_obj, prediction):
       mutual_bool = Bool(data=self.mutual)
       nearest_object_msg = String(data=yolo_obj.label)
-      msg_topic = GazeTopic(nearest_object = nearest_object_msg, mutual = mutual_bool)
+      coordinate_array = Float32MultiArray(data=prediction)
+
+      msg_topic = GazeTopic(nearest_object = nearest_object_msg, mutual = mutual_bool, coordinates=coordinate_array)
       self.obj_bridge_pub.publish(msg_topic)
-      print yolo_obj.label
+      # print yolo_obj.label  # DEBUG
 
     def find_closest_hlpr_cluster(self):
       min_diff = float('inf')
@@ -114,11 +113,24 @@ class ParseOpenFace:
         l1 = np.array(self.head_pose)
         l2 = center
         p = np.array(self.avg_gaze)
-        diff = np.linalg.norm(np.cross(l2-l1, l1-p))/np.linalg.norm(l2-l1)
+        # diff = np.linalg.norm(np.cross(l2-l1, p))/np.linalg.norm(p)
+        diff = np.linalg.norm(np.cross(l2-l1, p-l1))/np.linalg.norm(l2-l1)
         # diff = (self.avg_gaze[0] - center[0])**2 + (self.avg_gaze[1] - center[1])**2 + (self.avg_gaze[2] - center[2])**2
         if diff<min_diff:
           min_diff = diff
           min_item = item
+          min_l1, min_l2, min_p = l1, l2, p
+
+      head_x, head_y = self.image_geo.project3dToPixel(self.head_pose)
+      print "min l2 {0}".format(min_l2)
+      print "min l1 {0}".format(min_l1)
+      print "min diff {0}".format(min_l2-min_l1)
+      l1_x, l1_y = self.image_geo.project3dToPixel(min_l2-min_l1)  
+      line1 = Float32MultiArray(data=[head_x,head_y,l1_x+head_x, l1_y+head_y])
+      l2_x, l2_y = self.image_geo.project3dToPixel(min_l1 - 1000*min_p)
+      line2 = Float32MultiArray(data=[head_x,head_y,l2_x, l2_y])
+      self.line_pub.publish([line1, line2])
+      
       return min_item
 
     def find_closest_yolo_obj(self, x, y):
